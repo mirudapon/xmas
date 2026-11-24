@@ -10,7 +10,9 @@ CENTER = WIDTH // 2
 FRAME_COUNT, FRAME_DELAY = 56, 0.14
 TREE_TOP = 8
 BRANCH_WIDTHS = (
-    0, 1, 2, 3, 4, 6, 8, 6, 7, 9, 10, 12, 14, 11, 12, 14, 15, 17, 19, 21, 23, 25,
+    0, 1, 2, 3, 4, 5, 6,
+    4, 5, 6, 7, 8, 9, 10,
+    8, 9, 10, 11, 12, 13, 14, 15,
 )
 
 PINE = ("204858", "24657a", "3c8fa6", "58c4d5")
@@ -24,13 +26,9 @@ BUILDINGS = (
     (23, 5, 24, PINE), (45, 6, 23, VIOLET), (52, 7, 18, PINE),
     (60, 5, 22, VIOLET), (66, 6, 15, PINE),
 )
-LANTERNS = (
-    (-1, 11, PINK), (2, 13, CYAN), (-5, 14, AMBER), (4, 16, PINK),
-    (-6, 17, CYAN), (0, 18, AMBER), (8, 19, CYAN), (-9, 20, PINK),
-    (5, 21, AMBER), (-3, 22, PINK), (-11, 23, AMBER), (11, 23, PINK),
-    (0, 24, CYAN), (7, 25, PINK), (-8, 25, CYAN), (-15, 26, PINK),
-    (14, 26, AMBER), (-4, 27, AMBER), (3, 27, CYAN), (18, 28, PINK),
-    (-20, 28, AMBER), (-12, 29, PINK), (10, 29, CYAN), (22, 29, AMBER),
+LANTERN_PAIRS = (
+    (1, 11, PINK), (3, 16, AMBER), (6, 21, PINK),
+    (7, 24, AMBER), (5, 28, PINK), (11, 28, CYAN),
 )
 
 RESET = "\x1b[0m"
@@ -51,7 +49,7 @@ def write_at(scene, x, y, text, color):
 
 
 def gift(scene, x, y, paper, ribbon):
-    write_at(scene, x + 2, y, "╲╱", ribbon)
+    write_at(scene, x + 2, y, "╲╵╱", ribbon)
     write_at(scene, x, y + 1, "╭──┬──╮", paper)
     write_at(scene, x, y + 2, "│··│··│", paper)
     write_at(scene, x, y + 3, "╰──┴──╯", paper)
@@ -86,27 +84,26 @@ def make_scene():
     scene = [[EMPTY] * WIDTH for _ in range(HEIGHT)]
     add_city(scene)
 
-    for y in range(28, 34):
-        write_at(scene, CENTER - 2, y, "╎│╏│╎", VIOLET[2])
-        scene[y][CENTER + 1] = ("│", PINK[2])
+    for y in range(30, 34):
+        write_at(scene, CENTER - 1, y, "│┆│", VIOLET[2])
+        scene[y][CENTER] = ("┆", CYAN[1])
 
     for y, half_width in enumerate(BRANCH_WIDTHS, start=TREE_TOP):
-        for x in range(-half_width, half_width + 1):
-            texture = (x * x + 11 * x + 7 * y + x * y) % 31
-            char = "╱╲╵╷┆··"[texture % 7]
-            palette = PINE if x < (y % 4) - 2 else VIOLET
-            color = palette[texture % 3]
-            if abs(x) == half_width:
-                char = "╱" if x <= 0 else "╲"
-                color = palette[3]
-            elif texture < 5:
-                color = palette[3]
-            scene[y][CENTER + x] = (char, color)
+        scene[y][CENTER - half_width : CENTER + half_width + 1] = [EMPTY] * (
+            2 * half_width + 1
+        )
+        scene[y][CENTER] = ("╵" if half_width == 0 else "┆", FROST[1])
+        for distance in range(1, half_width + 1):
+            inset = half_width - distance
+            if inset % 3 == 0:
+                shade = 3 if inset == 0 else 1
+                scene[y][CENTER - distance] = ("╱", PINE[shade])
+                scene[y][CENTER + distance] = ("╲", VIOLET[shade])
 
-    gift(scene, 15, 30, PINK[2], AMBER[3])
-    gift(scene, 24, 31, CYAN[1], CYAN[3])
-    gift(scene, 42, 31, VIOLET[3], PINK[3])
-    gift(scene, 51, 30, CYAN[2], AMBER[3])
+    gift(scene, 15, 31, PINK[2], AMBER[3])
+    gift(scene, 25, 31, CYAN[1], CYAN[3])
+    gift(scene, 41, 31, VIOLET[3], PINK[3])
+    gift(scene, 51, 31, CYAN[2], AMBER[3])
     greeting = "N E O N   N O E L"
     left = (WIDTH - len(greeting)) // 2
     write_at(scene, left - 7, 36, "────", PINE[2])
@@ -116,7 +113,7 @@ def make_scene():
 
 
 def add_snow(scene, frame):
-    for flake in range(76):
+    for flake in range(64):
         start_x = (flake * flake * 41 + flake * 37) % WIDTH
         start_y = (flake * flake * 13 + 11 * flake) % HEIGHT
         close = flake % 5 == 0
@@ -124,6 +121,9 @@ def add_snow(scene, frame):
         y = (start_y + frame * HEIGHT * speed // FRAME_COUNT) % HEIGHT
         sway = round(2 * math.sin(math.tau * (frame / FRAME_COUNT + flake / 19)))
         x = (start_x + sway) % WIDTH
+        tree_row = y - TREE_TOP
+        if 0 <= tree_row < len(BRANCH_WIDTHS) and abs(x - CENTER) <= BRANCH_WIDTHS[tree_row]:
+            continue
         if scene[y][x] == EMPTY:
             char = "✧" if close else "·"
             color = pulse(frame + flake * 11, FROST if close else FROST[:2])
@@ -132,18 +132,18 @@ def add_snow(scene, frame):
 
 def add_lights(scene, frame):
     for y, half_width, palette in (
-        (13, 5, CYAN), (17, 9, PINK), (22, 13, CYAN), (26, 19, PINK),
+        (12, 3, CYAN), (18, 6, PINK), (25, 10, CYAN),
     ):
         for x in range(-half_width, half_width + 1):
             ratio = x / half_width
-            row = y + round(1.8 * (1 - ratio * ratio) + 0.7 * ratio)
-            if abs(x) <= BRANCH_WIDTHS[row - TREE_TOP]:
-                shade = pulse(frame * 2 - x * 3 + y, palette)
-                scene[row][CENTER + x] = ("•" if x % 3 == 0 else "·", shade)
+            row = y + round(1.8 * (1 - ratio * ratio))
+            shade = pulse(frame * 2 - abs(x) * 3 + y, palette)
+            scene[row][CENTER + x] = ("•" if x % 3 == 0 else "·", shade)
 
-    for index, (x, y, palette) in enumerate(LANTERNS):
+    for index, (distance, y, palette) in enumerate(LANTERN_PAIRS):
         color = pulse(frame + index * 11, palette)
-        scene[y][CENTER + x] = ("◆" if color == palette[-1] else "●", color)
+        bulb = ("◆" if color == palette[-1] else "●", color)
+        scene[y][CENTER - distance] = scene[y][CENTER + distance] = bulb
 
     for index, x in enumerate(range(-29, 30, 3)):
         y = 34 + index % 2
@@ -151,14 +151,12 @@ def add_lights(scene, frame):
             palette = CYAN[:2] if x < 0 else PINK[:2]
             scene[y][CENTER + x] = ("─", pulse(frame + index * 5, palette))
 
-    # The star has a cyan core and a magenta halo.
-    for index, (x, y, char) in enumerate(
-        ((0, 5, "✦"), (0, 3, "╵"), (0, 7, "╷"), (-3, 5, "─"), (3, 5, "─"),
-         (-2, 3, "·"), (2, 3, "·"), (-2, 7, "·"), (2, 7, "·"),
-         (-6, 2, "✧"), (7, 3, "✧"), (-8, 7, "·"), (8, 8, "·"))
+    scene[5][CENTER] = ("✦", pulse(frame * 2, CYAN[3:]))
+    for index, (distance, y, char) in enumerate(
+        ((0, 3, "╵"), (0, 7, "╷"), (3, 5, "─"), (2, 3, "·"), (2, 7, "·"), (5, 2, "✧"))
     ):
-        palette = CYAN[3:] if index == 0 else PINK
-        write_at(scene, CENTER + x, y, char, pulse(frame * 2 + index * 7, palette))
+        glint = (char, pulse(frame * 2 + index * 7, PINK))
+        scene[y][CENTER - distance] = scene[y][CENTER + distance] = glint
 
 
 def render_frame(background, frame):

@@ -10,9 +10,10 @@ CENTER = WIDTH // 2
 FRAME_COUNT, FRAME_DELAY = 56, 0.14
 TREE_TOP = 8
 BRANCH_WIDTHS = (
-    0, 1, 2, 3, 4, 5, 6,
-    4, 5, 6, 7, 8, 9, 10,
-    8, 9, 10, 11, 12, 13, 14, 15,
+    0, 1, 2, 4, 6,
+    3, 4, 5, 7, 9,
+    4, 5, 6, 8, 10, 12,
+    6, 7, 9, 11, 13, 15,
 )
 
 PINE = ("204858", "24657a", "3c8fa6", "58c4d5")
@@ -26,9 +27,10 @@ BUILDINGS = (
     (23, 5, 24, PINE), (45, 6, 23, VIOLET), (52, 7, 18, PINE),
     (60, 5, 22, VIOLET), (66, 6, 15, PINE),
 )
-LANTERN_PAIRS = (
-    (1, 11, PINK), (3, 16, AMBER), (6, 21, PINK),
-    (7, 24, AMBER), (5, 28, PINK), (11, 28, CYAN),
+LANTERNS = (
+    (1, 10, AMBER), (-2, 12, PINK), (-3, 14, CYAN), (4, 17, AMBER),
+    (-4, 19, PINK), (5, 21, AMBER), (-5, 23, CYAN), (4, 24, PINK),
+    (-5, 25, AMBER), (9, 27, AMBER), (-10, 28, CYAN), (3, 29, PINK),
 )
 
 RESET = "\x1b[0m"
@@ -88,17 +90,37 @@ def make_scene():
         write_at(scene, CENTER - 1, y, "│┆│", VIOLET[2])
         scene[y][CENTER] = ("┆", CYAN[1])
 
-    for y, half_width in enumerate(BRANCH_WIDTHS, start=TREE_TOP):
+    # Each tier overhangs the one below it, with lit tips and darker inner needles.
+    following_widths = BRANCH_WIDTHS[1:] + (2,)
+    for y, (half_width, next_width) in enumerate(
+        zip(BRANCH_WIDTHS, following_widths), start=TREE_TOP
+    ):
         scene[y][CENTER - half_width : CENTER + half_width + 1] = [EMPTY] * (
             2 * half_width + 1
         )
-        scene[y][CENTER] = ("╵" if half_width == 0 else "┆", FROST[1])
+        if half_width == 0:
+            scene[y][CENTER] = ("╵", CYAN[2])
+        elif y % 3 == 0:
+            scene[y][CENTER] = ("·", FROST[1])
         for distance in range(1, half_width + 1):
-            inset = half_width - distance
-            if inset % 3 == 0:
-                shade = 3 if inset == 0 else 1
-                scene[y][CENTER - distance] = ("╱", PINE[shade])
-                scene[y][CENTER + distance] = ("╲", VIOLET[shade])
+            if distance > next_width:
+                if distance == half_width:
+                    left, right = "╰", "╯"
+                elif distance == next_width + 1:
+                    left, right = "╴", "╶"
+                else:
+                    left = right = "─"
+                shade = 2
+            elif distance == half_width:
+                left, right, shade = "╱", "╲", 3
+            elif (distance + y) % 4 == 0:
+                left, right, shade = "╱", "╲", 1
+            elif (2 * distance + y) % 5 == 0:
+                left, right, shade = "╴", "╶", 0
+            else:
+                continue
+            scene[y][CENTER - distance] = (left, PINE[shade])
+            scene[y][CENTER + distance] = (right, VIOLET[shade])
 
     gift(scene, 15, 31, PINK[2], AMBER[3])
     gift(scene, 25, 31, CYAN[1], CYAN[3])
@@ -132,18 +154,17 @@ def add_snow(scene, frame):
 
 def add_lights(scene, frame):
     for y, half_width, palette in (
-        (12, 3, CYAN), (18, 6, PINK), (25, 10, CYAN),
+        (15, 4, PINK), (20, 5, CYAN), (26, 7, PINK),
     ):
         for x in range(-half_width, half_width + 1):
             ratio = x / half_width
-            row = y + round(1.8 * (1 - ratio * ratio))
-            shade = pulse(frame * 2 - abs(x) * 3 + y, palette)
+            row = y + round(1.8 * (1 - ratio * ratio) + 0.45 * ratio)
+            shade = pulse(frame * 2 - x * 3 + y, palette)
             scene[row][CENTER + x] = ("•" if x % 3 == 0 else "·", shade)
 
-    for index, (distance, y, palette) in enumerate(LANTERN_PAIRS):
-        color = pulse(frame + index * 11, palette)
-        bulb = ("◆" if color == palette[-1] else "●", color)
-        scene[y][CENTER - distance] = scene[y][CENTER + distance] = bulb
+    for index, (x, y, palette) in enumerate(LANTERNS):
+        color = pulse(frame + index * 11, palette[1:])
+        scene[y][CENTER + x] = ("◆" if index % 3 == 0 else "•", color)
 
     for index, x in enumerate(range(-29, 30, 3)):
         y = 34 + index % 2

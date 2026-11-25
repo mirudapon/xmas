@@ -1,0 +1,22 @@
+{
+  "seed": "9b9845ca0866c1deaa160881314fe29fb0087552",
+  "createdAt": "2026-11-25T03:52:45.321Z",
+  "pairs": [
+    {
+      "from": "negionion",
+      "to": "kangjwme"
+    },
+    {
+      "from": "kangjwme",
+      "to": "tcandicetc"
+    },
+    {
+      "from": "tcandicetc",
+      "to": "mirudapon"
+    },
+    {
+      "from": "mirudapon",
+      "to": "negionion"
+    }
+  ]
+}
